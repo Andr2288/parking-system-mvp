@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "db:setup": "node db_setup.js",
     "dev": "nodemon src/server.js",
     "start": "node src/server.js"
   },
