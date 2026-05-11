@@ -1,6 +1,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const { requireAuth } = require('../middleware/auth');
+const { getLiveTariffContext } = require('../services/pricing');
 
 const router = express.Router();
 
@@ -24,6 +25,23 @@ function mapTariffRow(row) {
     createdAt: row.created_at,
   };
 }
+
+router.get('/live', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM tariffs WHERE is_active = 1 ORDER BY id DESC LIMIT 1'
+    );
+    if (rows.length === 0) {
+      res.status(404).json({ error: 'No active tariff' });
+      return;
+    }
+    const live = getLiveTariffContext(rows[0], new Date());
+    res.json({ live });
+  } catch (err) {
+    console.error('Get live tariff:', err.message);
+    res.status(500).json({ error: 'Failed to load live tariff context' });
+  }
+});
 
 router.get('/current', async (req, res) => {
   try {

@@ -105,4 +105,82 @@ function computeSessionCost(start, end, tariff) {
   return computeBasicCost(start, end, tariff);
 }
 
-module.exports = { computeSessionCost };
+/**
+ * Поточний сегмент тарифу «зараз» (час сервера Node) для UI.
+ * @param {object} tariff - рядок з таблиці tariffs (snake_case)
+ * @param {Date} [now]
+ */
+function getLiveTariffContext(tariff, now = new Date()) {
+  const minPrice = Number(tariff.min_price);
+  const baseRate = Number(tariff.price_per_hour);
+  const safeMin = Number.isFinite(minPrice) ? minPrice : 0;
+  const safeBase = Number.isFinite(baseRate) ? baseRate : 0;
+
+  if (!tariff.smart_mode) {
+    return {
+      serverTime: now.toISOString(),
+      mode: 'basic',
+      periodKey: 'base',
+      periodLabel: 'Базовий тариф',
+      ratePerHour: safeBase,
+      minPrice: safeMin,
+    };
+  }
+
+  if (tariff.smart_type === 'day_night') {
+    const dayStartMin = parseTimeToMinutes(tariff.day_start);
+    const dayEndMin = parseTimeToMinutes(tariff.day_end);
+    const isDay = isDayAtLocal(now, dayStartMin, dayEndMin);
+    const dayP = Number(tariff.day_price);
+    const nightP = Number(tariff.night_price);
+    const rate = isDay
+      ? Number.isFinite(dayP)
+        ? dayP
+        : safeBase
+      : Number.isFinite(nightP)
+        ? nightP
+        : safeBase;
+    return {
+      serverTime: now.toISOString(),
+      mode: 'day_night',
+      periodKey: isDay ? 'day' : 'night',
+      periodLabel: isDay ? 'День' : 'Ніч',
+      ratePerHour: Number.isFinite(rate) ? rate : safeBase,
+      minPrice: safeMin,
+      dayStart: tariff.day_start,
+      dayEnd: tariff.day_end,
+    };
+  }
+
+  if (tariff.smart_type === 'weekday_weekend') {
+    const weekend = isWeekendAtLocal(now);
+    const wdP = Number(tariff.weekday_price);
+    const weP = Number(tariff.weekend_price);
+    const rate = weekend
+      ? Number.isFinite(weP)
+        ? weP
+        : safeBase
+      : Number.isFinite(wdP)
+        ? wdP
+        : safeBase;
+    return {
+      serverTime: now.toISOString(),
+      mode: 'weekday_weekend',
+      periodKey: weekend ? 'weekend' : 'weekday',
+      periodLabel: weekend ? 'Вихідний' : 'Будень',
+      ratePerHour: Number.isFinite(rate) ? rate : safeBase,
+      minPrice: safeMin,
+    };
+  }
+
+  return {
+    serverTime: now.toISOString(),
+    mode: 'basic',
+    periodKey: 'base',
+    periodLabel: 'Базовий тариф',
+    ratePerHour: safeBase,
+    minPrice: safeMin,
+  };
+}
+
+module.exports = { computeSessionCost, getLiveTariffContext };

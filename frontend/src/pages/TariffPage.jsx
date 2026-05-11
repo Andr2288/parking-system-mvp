@@ -84,6 +84,7 @@ export default function TariffPage() {
       });
       applyTariff(data.tariff);
       setSuccess('Тариф збережено. Нові значення застосовуються до нових сесій.');
+      window.dispatchEvent(new CustomEvent('parking-tariff-changed'));
     } catch (err) {
       setError(err.message);
     } finally {
