@@ -46,6 +46,26 @@ function formatCoeff(v) {
   return String(Math.round(n * 10000) / 10000).replace(/\.?0+$/, '') || '1';
 }
 
+/** Тривалість зайняття від startTime до now (оновлюється щосекунди). */
+function formatOccupiedElapsed(startTime, now) {
+  if (startTime == null) return null;
+  const start = startTime instanceof Date ? startTime : new Date(startTime);
+  if (Number.isNaN(start.getTime())) return null;
+  let ms = now.getTime() - start.getTime();
+  if (ms < 0) ms = 0;
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) {
+    return `${h} год ${m} хв ${s} с`;
+  }
+  if (m > 0) {
+    return `${m} хв ${s} с`;
+  }
+  return `${s} с`;
+}
+
 export default function ParkingSpotsPage() {
   const [spots, setSpots] = useState([]);
   const [vehicles, setVehicles] = useState([]);
@@ -60,10 +80,22 @@ export default function ParkingSpotsPage() {
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [newPlate, setNewPlate] = useState('');
   const [busy, setBusy] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  const hasOccupiedSpots = spots.some((s) => s.status === 'occupied');
+
+  useEffect(() => {
+    if (!hasOccupiedSpots) {
+      return undefined;
+    }
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, [hasOccupiedSpots]);
 
   const loadSpots = useCallback(async () => {
     const data = await api.request('/api/parking-spots');
     setSpots(data.spots || []);
+    setNow(new Date());
   }, []);
 
   const loadVehicles = useCallback(async () => {
@@ -222,51 +254,60 @@ export default function ParkingSpotsPage() {
               <thead className="border-b border-[#e6ebf1] bg-slate-50 text-xs font-semibold uppercase tracking-wide text-[#4f566b]">
                 <tr>
                   <th className="px-4 py-3">Номер</th>
-                  <th className="px-4 py-3">Статус</th>
+                  <th className="px-4 py-3 text-center">Статус</th>
                   <th className="px-4 py-3">Зона</th>
                   <th className="px-4 py-3">Коеф.</th>
-                  <th className="px-4 py-3 text-right">Дії</th>
+                  <th className="w-36 px-4 py-3 text-right">Дії</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6ebf1]">
                 {spots.map((s) => (
                   <tr key={s.id} className="text-[#1a1f36]">
                     <td className="px-4 py-3 font-medium">{s.spotNumber}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={s.status} />
+                    <td className="px-4 py-3 text-center">
+                      <div className="flex flex-col items-center gap-1.5">
+                        <StatusBadge status={s.status} />
+                        {s.status === 'occupied' ? (
+                          <div className="font-mono text-xs font-semibold tabular-nums text-[#1a1f36]">
+                            {formatOccupiedElapsed(s.activeSessionStartTime, now) ?? '—'}
+                          </div>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <ZoneCell zone={s.zone} zoneColor={s.zoneColor} />
                     </td>
                     <td className="px-4 py-3 font-mono text-[#4f566b]">{formatCoeff(s.priceCoefficient ?? 1)}</td>
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => openEdit(s)}
-                        className="mr-2 rounded-md border border-[#e6ebf1] bg-white px-2 py-1.5 text-xs font-semibold text-[#1a1f36] hover:bg-slate-50"
-                      >
-                        Змінити
-                      </button>
-                      {s.status === 'free' ? (
+                    <td className="px-4 py-3 text-right align-top">
+                      <div className="ml-auto flex w-36 flex-col gap-2">
                         <button
                           type="button"
                           disabled={busy}
-                          onClick={() => openStartModal(s)}
-                          className="rounded-md bg-[#635bff] px-2 py-1.5 text-xs font-semibold text-white hover:bg-[#5851e6] disabled:opacity-50"
+                          onClick={() => openEdit(s)}
+                          className="w-full rounded-md border border-[#e6ebf1] bg-white px-2 py-2 text-xs font-semibold text-[#1a1f36] hover:bg-slate-50"
                         >
-                          Зайняти
+                          Змінити
                         </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={busy || !s.activeSessionId}
-                          onClick={() => handleEndSession(s.activeSessionId)}
-                          className="rounded-md border border-[#e6ebf1] bg-white px-2 py-1.5 text-xs font-semibold text-[#1a1f36] hover:bg-slate-50 disabled:opacity-50"
-                        >
-                          Звільнити
-                        </button>
-                      )}
+                        {s.status === 'free' ? (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            onClick={() => openStartModal(s)}
+                            className="w-full rounded-md bg-[#635bff] px-2 py-2 text-xs font-semibold text-white hover:bg-[#5851e6] disabled:opacity-50"
+                          >
+                            Зайняти
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={busy || !s.activeSessionId}
+                            onClick={() => handleEndSession(s.activeSessionId)}
+                            className="w-full rounded-md border border-[#e6ebf1] bg-white px-2 py-2 text-xs font-semibold text-[#1a1f36] hover:bg-slate-50 disabled:opacity-50"
+                          >
+                            Звільнити
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

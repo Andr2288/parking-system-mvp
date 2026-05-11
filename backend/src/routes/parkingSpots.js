@@ -28,7 +28,8 @@ router.get('/', async (req, res) => {
          p.note,
          p.price_coefficient AS priceCoefficient,
          p.zone_color AS zoneColor,
-         ps.id AS activeSessionId
+         ps.id AS activeSessionId,
+         ps.start_time AS activeSessionStartTime
        FROM parking_spots p
        LEFT JOIN parking_sessions ps
          ON ps.parking_spot_id = p.id AND ps.status = 'active'
@@ -113,7 +114,8 @@ router.put('/:id', async (req, res) => {
          p.note,
          p.price_coefficient AS priceCoefficient,
          p.zone_color AS zoneColor,
-         ps.id AS activeSessionId
+         ps.id AS activeSessionId,
+         ps.start_time AS activeSessionStartTime
        FROM parking_spots p
        LEFT JOIN parking_sessions ps
          ON ps.parking_spot_id = p.id AND ps.status = 'active'
