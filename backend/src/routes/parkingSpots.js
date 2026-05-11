@@ -9,9 +9,17 @@ router.use(requireAuth);
 router.get('/', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, spot_number AS spotNumber, status, zone, note
-       FROM parking_spots
-       ORDER BY spot_number ASC`
+      `SELECT
+         p.id,
+         p.spot_number AS spotNumber,
+         p.status,
+         p.zone,
+         p.note,
+         ps.id AS activeSessionId
+       FROM parking_spots p
+       LEFT JOIN parking_sessions ps
+         ON ps.parking_spot_id = p.id AND ps.status = 'active'
+       ORDER BY p.spot_number ASC`
     );
     res.json({ spots: rows });
   } catch (err) {

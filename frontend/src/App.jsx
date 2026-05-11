@@ -1,22 +1,33 @@
-function App() {
-    return (
-        <main className="min-h-screen bg-[#f6f9fc]">
-            <section className="mx-auto max-w-5xl px-4 py-10">
-                <div className="rounded-2xl border border-[#e6ebf1] bg-white p-6 shadow-sm">
-                    <p className="text-sm font-medium uppercase tracking-wide text-[#635bff]">
-                        Parking System MVP
-                    </p>
-                    <h1 className="mt-2 text-3xl font-semibold text-[#1a1f36]">
-                        Admin Dashboard
-                    </h1>
-                    <p className="mt-3 text-[#4f566b]">
-                        Project initialized. Next step: database schema and
-                        authentication.
-                    </p>
-                </div>
-            </section>
-        </main>
-    );
-}
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import Layout from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
+import LoginPage from './pages/LoginPage';
+import ParkingSpotsPage from './pages/ParkingSpotsPage';
+import VehiclesPage from './pages/VehiclesPage';
+import TariffPage from './pages/TariffPage';
+import DashboardPage from './pages/DashboardPage';
+import HistoryPage from './pages/HistoryPage';
 
-export default App;
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<Layout />}>
+              <Route path="/" element={<Navigate to="/spots" replace />} />
+              <Route path="/spots" element={<ParkingSpotsPage />} />
+              <Route path="/vehicles" element={<VehiclesPage />} />
+              <Route path="/tariff" element={<TariffPage />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/history" element={<HistoryPage />} />
+            </Route>
+          </Route>
+          <Route path="*" element={<Navigate to="/spots" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}
