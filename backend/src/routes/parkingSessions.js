@@ -120,7 +120,10 @@ router.post('/:id/end', async (req, res) => {
     await conn.beginTransaction();
 
     const [sessions] = await conn.query(
-      `SELECT ps.*, p.spot_number AS spotNumber, v.license_plate AS licensePlate
+      `SELECT ps.*,
+              p.spot_number AS spotNumber,
+              p.price_coefficient AS spotPriceCoefficient,
+              v.license_plate AS licensePlate
        FROM parking_sessions ps
        JOIN parking_spots p ON p.id = ps.parking_spot_id
        JOIN vehicles v ON v.id = ps.vehicle_id
@@ -156,7 +159,10 @@ router.post('/:id/end', async (req, res) => {
     const endTime = nowRows[0].end_time;
     const startTime = session.start_time instanceof Date ? session.start_time : new Date(session.start_time);
 
-    const totalCost = computeSessionCost(startTime, endTime, tariff);
+    let totalCost = computeSessionCost(startTime, endTime, tariff);
+    const coeff = Number(session.spotPriceCoefficient);
+    const k = Number.isFinite(coeff) && coeff > 0 ? coeff : 1;
+    totalCost = Math.round(totalCost * k * 100) / 100;
 
     await conn.query(
       `UPDATE parking_sessions

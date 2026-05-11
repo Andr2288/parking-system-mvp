@@ -73,7 +73,7 @@ export default function DashboardPage() {
             onChange={(e) => setAllTime(e.target.checked)}
             className="h-4 w-4 rounded border-[#e6ebf1] text-[#635bff]"
           />
-          Усі часи
+          За ввесь час
         </label>
         {!allTime ? (
           <div className="flex flex-col gap-2 sm:flex-row sm:items-end">

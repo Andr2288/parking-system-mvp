@@ -47,6 +47,63 @@ async function getCount(connection, tableName) {
   return rows[0]?.total || 0;
 }
 
+async function migrateParkingSpotsColumns(connection) {
+  const [cols] = await connection.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'parking_spots'`,
+    [dbName]
+  );
+  const names = new Set(cols.map((c) => c.COLUMN_NAME));
+
+  if (!names.has('price_coefficient')) {
+    await connection.query(
+      `ALTER TABLE parking_spots ADD COLUMN price_coefficient DECIMAL(10,4) NOT NULL DEFAULT 1`
+    );
+    console.log('- Migration: added parking_spots.price_coefficient');
+  }
+  if (!names.has('zone_color')) {
+    await connection.query(`ALTER TABLE parking_spots ADD COLUMN zone_color VARCHAR(32) NULL`);
+    console.log('- Migration: added parking_spots.zone_color');
+  }
+
+  const [zoneCol] = await connection.query(
+    `SELECT CHARACTER_MAXIMUM_LENGTH AS len
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'parking_spots' AND COLUMN_NAME = 'zone'`,
+    [dbName]
+  );
+  if (zoneCol.length > 0 && zoneCol[0].len != null && Number(zoneCol[0].len) < 120) {
+    await connection.query(`ALTER TABLE parking_spots MODIFY COLUMN zone VARCHAR(120) NULL`);
+    console.log('- Migration: widened parking_spots.zone to VARCHAR(120)');
+  }
+}
+
+async function ensureParkingSessionsIndexes(connection) {
+  const specs = [
+    {
+      name: 'idx_parking_sessions_status',
+      sql: 'CREATE INDEX idx_parking_sessions_status ON parking_sessions(status)',
+    },
+    {
+      name: 'idx_parking_sessions_start_time',
+      sql: 'CREATE INDEX idx_parking_sessions_start_time ON parking_sessions(start_time)',
+    },
+  ];
+
+  for (const { name, sql } of specs) {
+    const [rows] = await connection.query(
+      `SELECT 1 FROM information_schema.statistics
+       WHERE table_schema = ? AND table_name = 'parking_sessions' AND index_name = ?
+       LIMIT 1`,
+      [dbName, name]
+    );
+    if (rows.length === 0) {
+      await connection.query(sql);
+      console.log(`- Added index ${name}`);
+    }
+  }
+}
+
 async function checkDatabaseStatus() {
   const connection = await mysql.createConnection(dbConfig);
   try {
@@ -96,11 +153,15 @@ async function initializeDatabase() {
         id INT AUTO_INCREMENT PRIMARY KEY,
         spot_number VARCHAR(20) NOT NULL UNIQUE,
         status ENUM('free', 'occupied') NOT NULL DEFAULT 'free',
-        zone VARCHAR(50) NULL,
+        zone VARCHAR(120) NULL,
         note VARCHAR(255) NULL,
+        price_coefficient DECIMAL(10,4) NOT NULL DEFAULT 1,
+        zone_color VARCHAR(32) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    await migrateParkingSpotsColumns(connection);
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS vehicles (
@@ -148,12 +209,7 @@ async function initializeDatabase() {
       )
     `);
 
-    await connection.query(`
-      CREATE INDEX idx_parking_sessions_status ON parking_sessions(status)
-    `);
-    await connection.query(`
-      CREATE INDEX idx_parking_sessions_start_time ON parking_sessions(start_time)
-    `);
+    await ensureParkingSessionsIndexes(connection);
 
     const [users] = await connection.query('SELECT id FROM users WHERE login = ? LIMIT 1', ['admin']);
     if (users.length === 0) {
