@@ -39,7 +39,6 @@ function formatCoeff(v) {
   return String(Math.round(n * 10000) / 10000).replace(/\.?0+$/, '') || '1';
 }
 
-/** Тривалість зайняття від startTime до now (оновлюється щосекунди). */
 function formatOccupiedElapsed(startTime, now) {
   if (startTime == null) return null;
   const start = startTime instanceof Date ? startTime : new Date(startTime);
@@ -66,7 +65,8 @@ export default function ParkingSpotsPage() {
   const [error, setError] = useState('');
   const [modalSpot, setModalSpot] = useState(null);
   const [editSpot, setEditSpot] = useState(null);
-  const [editZone, setEditZone] = useState('');
+  const [editZoneSelect, setEditZoneSelect] = useState('');
+  const [editZoneInput, setEditZoneInput] = useState('');
   const [editNote, setEditNote] = useState('');
   const [editCoeff, setEditCoeff] = useState('1');
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
@@ -77,7 +77,8 @@ export default function ParkingSpotsPage() {
   const [zoneFilter, setZoneFilter] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [createNumber, setCreateNumber] = useState('');
-  const [createZone, setCreateZone] = useState('');
+  const [createZoneSelect, setCreateZoneSelect] = useState('');
+  const [createZoneInput, setCreateZoneInput] = useState('');
   const [createNote, setCreateNote] = useState('');
   const [createCoeff, setCreateCoeff] = useState('1');
 
@@ -159,7 +160,14 @@ export default function ParkingSpotsPage() {
   function openEdit(spot) {
     setError('');
     setEditSpot(spot);
-    setEditZone(spot.zone || '');
+    const z = typeof spot.zone === 'string' ? spot.zone.trim() : '';
+    if (z && zoneOptions.includes(z)) {
+      setEditZoneSelect(z);
+      setEditZoneInput('');
+    } else {
+      setEditZoneSelect('');
+      setEditZoneInput(z);
+    }
     setEditNote(spot.note || '');
     setEditCoeff(formatCoeff(spot.priceCoefficient ?? 1));
   }
@@ -168,9 +176,12 @@ export default function ParkingSpotsPage() {
     if (!editSpot) return;
     setBusy(true);
     setError('');
+    const zone =
+      editZoneInput.trim() ||
+      (typeof editZoneSelect === 'string' ? editZoneSelect.trim() : '');
     try {
       const body = {
-        zone: editZone,
+        zone,
         note: editNote,
         priceCoefficient: Number(editCoeff),
       };
@@ -257,7 +268,8 @@ export default function ParkingSpotsPage() {
   function openCreateModal() {
     setError('');
     setCreateNumber('');
-    setCreateZone('');
+    setCreateZoneSelect('');
+    setCreateZoneInput('');
     setCreateNote('');
     setCreateCoeff('1');
     setCreateOpen(true);
@@ -271,12 +283,15 @@ export default function ParkingSpotsPage() {
     }
     setBusy(true);
     setError('');
+    const zone =
+      createZoneInput.trim() ||
+      (typeof createZoneSelect === 'string' ? createZoneSelect.trim() : '');
     try {
       await api.request('/api/parking-spots', {
         method: 'POST',
         body: JSON.stringify({
           spotNumber: num,
-          zone: createZone,
+          zone,
           note: createNote,
           priceCoefficient: Number(createCoeff),
         }),
@@ -551,12 +566,28 @@ export default function ParkingSpotsPage() {
                               <label className="text-sm font-medium text-[#1a1f36]">
                                   Зона
                               </label>
+                              {zoneOptions.length > 0 ? (
+                                  <select
+                                      className="mt-1 w-full rounded-md border border-[#e6ebf1] bg-white px-3 py-2 text-sm text-[#1a1f36]"
+                                      value={createZoneSelect}
+                                      onChange={(e) =>
+                                          setCreateZoneSelect(e.target.value)
+                                      }
+                                  >
+                                      {zoneOptions.map((z) => (
+                                          <option key={z} value={z}>
+                                              {z}
+                                          </option>
+                                      ))}
+                                      <option value="" />
+                                  </select>
+                              ) : null}
                               <input
-                                  className="mt-1 w-full rounded-md border border-[#e6ebf1] px-3 py-2 text-sm"
-                                  placeholder="Необов’язково"
-                                  value={createZone}
+                                  className="mt-2 w-full rounded-md border border-[#e6ebf1] px-3 py-2 text-sm"
+                                  placeholder="Нова зона (якщо немає у списку)…"
+                                  value={createZoneInput}
                                   onChange={(e) =>
-                                      setCreateZone(e.target.value)
+                                      setCreateZoneInput(e.target.value)
                                   }
                                   maxLength={120}
                               />
@@ -631,11 +662,29 @@ export default function ParkingSpotsPage() {
                               <label className="text-sm font-medium text-[#1a1f36]">
                                   Зона
                               </label>
+                              {zoneOptions.length > 0 ? (
+                                  <select
+                                      className="mt-1 w-full rounded-md border border-[#e6ebf1] bg-white px-3 py-2 text-sm text-[#1a1f36]"
+                                      value={editZoneSelect}
+                                      onChange={(e) =>
+                                          setEditZoneSelect(e.target.value)
+                                      }
+                                  >
+                                      {zoneOptions.map((z) => (
+                                          <option key={z} value={z}>
+                                              {z}
+                                          </option>
+                                      ))}
+                                      <option value="" />
+                                  </select>
+                              ) : null}
                               <input
-                                  className="mt-1 w-full rounded-md border border-[#e6ebf1] px-3 py-2 text-sm"
-                                  placeholder="Напр.: для людей з інвалідністю, електромобілів…"
-                                  value={editZone}
-                                  onChange={(e) => setEditZone(e.target.value)}
+                                  className="mt-2 w-full rounded-md border border-[#e6ebf1] px-3 py-2 text-sm"
+                                  placeholder="Нова зона (якщо немає у списку)…"
+                                  value={editZoneInput}
+                                  onChange={(e) =>
+                                      setEditZoneInput(e.target.value)
+                                  }
                                   maxLength={120}
                               />
                           </div>

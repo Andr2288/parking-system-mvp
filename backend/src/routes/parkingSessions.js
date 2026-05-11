@@ -14,6 +14,29 @@ async function getActiveTariff(conn) {
   return rows[0] || null;
 }
 
+function toNullableNumber(value) {
+  if (value == null) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function resolveRateSnapshots(tariff) {
+  const base = toNullableNumber(tariff.price_per_hour);
+  if (tariff.smart_mode && tariff.smart_type === 'day_night') {
+    return {
+      day: toNullableNumber(tariff.day_price) ?? base,
+      night: toNullableNumber(tariff.night_price) ?? base,
+    };
+  }
+  if (tariff.smart_mode && tariff.smart_type === 'weekday_weekend') {
+    return {
+      day: toNullableNumber(tariff.weekday_price) ?? base,
+      night: toNullableNumber(tariff.weekend_price) ?? base,
+    };
+  }
+  return { day: base, night: base };
+}
+
 router.post('/', async (req, res) => {
   const spotId = Number(req.body?.parkingSpotId);
   const vehicleId = Number(req.body?.vehicleId);
@@ -69,10 +92,13 @@ router.post('/', async (req, res) => {
       return;
     }
 
+    const { day: dayRateSnapshot, night: nightRateSnapshot } = resolveRateSnapshots(tariff);
     const [result] = await conn.query(
-      `INSERT INTO parking_sessions (parking_spot_id, vehicle_id, start_time, status, tariff_id)
-       VALUES (?, ?, NOW(), 'active', ?)`,
-      [spotId, vehicleId, tariff.id]
+      `INSERT INTO parking_sessions (
+         parking_spot_id, vehicle_id, start_time, status, tariff_id, day_rate_snapshot, night_rate_snapshot
+       )
+       VALUES (?, ?, NOW(), 'active', ?, ?, ?)`,
+      [spotId, vehicleId, tariff.id, dayRateSnapshot, nightRateSnapshot]
     );
 
     await conn.query('UPDATE parking_spots SET status = ? WHERE id = ?', ['occupied', spotId]);
@@ -89,12 +115,23 @@ router.post('/', async (req, res) => {
          ps.total_cost AS totalCost,
          ps.status,
          ps.payment_status AS paymentStatus,
+         COALESCE(ps.day_rate_snapshot, CASE
+           WHEN t.smart_mode = 1 AND t.smart_type = 'day_night' THEN t.day_price
+           WHEN t.smart_mode = 1 AND t.smart_type = 'weekday_weekend' THEN t.weekday_price
+           ELSE t.price_per_hour
+         END) AS dayRateSnapshot,
+         COALESCE(ps.night_rate_snapshot, CASE
+           WHEN t.smart_mode = 1 AND t.smart_type = 'day_night' THEN t.night_price
+           WHEN t.smart_mode = 1 AND t.smart_type = 'weekday_weekend' THEN t.weekend_price
+           ELSE t.price_per_hour
+         END) AS nightRateSnapshot,
          ps.tariff_id AS tariffId,
          p.spot_number AS spotNumber,
          v.license_plate AS licensePlate
        FROM parking_sessions ps
        JOIN parking_spots p ON p.id = ps.parking_spot_id
        JOIN vehicles v ON v.id = ps.vehicle_id
+       JOIN tariffs t ON t.id = ps.tariff_id
        WHERE ps.id = ?`,
       [result.insertId]
     );
@@ -189,11 +226,22 @@ router.post('/:id/end', async (req, res) => {
          ps.total_cost AS totalCost,
          ps.status,
          ps.payment_status AS paymentStatus,
+         COALESCE(ps.day_rate_snapshot, CASE
+           WHEN t.smart_mode = 1 AND t.smart_type = 'day_night' THEN t.day_price
+           WHEN t.smart_mode = 1 AND t.smart_type = 'weekday_weekend' THEN t.weekday_price
+           ELSE t.price_per_hour
+         END) AS dayRateSnapshot,
+         COALESCE(ps.night_rate_snapshot, CASE
+           WHEN t.smart_mode = 1 AND t.smart_type = 'day_night' THEN t.night_price
+           WHEN t.smart_mode = 1 AND t.smart_type = 'weekday_weekend' THEN t.weekend_price
+           ELSE t.price_per_hour
+         END) AS nightRateSnapshot,
          p.spot_number AS spotNumber,
          v.license_plate AS licensePlate
        FROM parking_sessions ps
        JOIN parking_spots p ON p.id = ps.parking_spot_id
        JOIN vehicles v ON v.id = ps.vehicle_id
+       JOIN tariffs t ON t.id = ps.tariff_id
        WHERE ps.id = ?`,
       [sessionId]
     );
@@ -242,12 +290,23 @@ router.patch('/:id', async (req, res) => {
          ps.total_cost AS totalCost,
          ps.status,
          ps.payment_status AS paymentStatus,
+         COALESCE(ps.day_rate_snapshot, CASE
+           WHEN t.smart_mode = 1 AND t.smart_type = 'day_night' THEN t.day_price
+           WHEN t.smart_mode = 1 AND t.smart_type = 'weekday_weekend' THEN t.weekday_price
+           ELSE t.price_per_hour
+         END) AS dayRateSnapshot,
+         COALESCE(ps.night_rate_snapshot, CASE
+           WHEN t.smart_mode = 1 AND t.smart_type = 'day_night' THEN t.night_price
+           WHEN t.smart_mode = 1 AND t.smart_type = 'weekday_weekend' THEN t.weekend_price
+           ELSE t.price_per_hour
+         END) AS nightRateSnapshot,
          p.spot_number AS spotNumber,
          v.license_plate AS licensePlate,
          ROUND(TIMESTAMPDIFF(SECOND, ps.start_time, ps.end_time) / 3600, 4) AS durationHours
        FROM parking_sessions ps
        JOIN parking_spots p ON p.id = ps.parking_spot_id
        JOIN vehicles v ON v.id = ps.vehicle_id
+       JOIN tariffs t ON t.id = ps.tariff_id
        WHERE ps.id = ?`,
       [sessionId]
     );
@@ -274,12 +333,23 @@ router.get('/', async (req, res) => {
          ps.total_cost AS totalCost,
          ps.status,
          ps.payment_status AS paymentStatus,
+         COALESCE(ps.day_rate_snapshot, CASE
+           WHEN t.smart_mode = 1 AND t.smart_type = 'day_night' THEN t.day_price
+           WHEN t.smart_mode = 1 AND t.smart_type = 'weekday_weekend' THEN t.weekday_price
+           ELSE t.price_per_hour
+         END) AS dayRateSnapshot,
+         COALESCE(ps.night_rate_snapshot, CASE
+           WHEN t.smart_mode = 1 AND t.smart_type = 'day_night' THEN t.night_price
+           WHEN t.smart_mode = 1 AND t.smart_type = 'weekday_weekend' THEN t.weekend_price
+           ELSE t.price_per_hour
+         END) AS nightRateSnapshot,
          p.spot_number AS spotNumber,
          v.license_plate AS licensePlate,
          ROUND(TIMESTAMPDIFF(SECOND, ps.start_time, ps.end_time) / 3600, 4) AS durationHours
        FROM parking_sessions ps
        JOIN parking_spots p ON p.id = ps.parking_spot_id
        JOIN vehicles v ON v.id = ps.vehicle_id
+       JOIN tariffs t ON t.id = ps.tariff_id
        WHERE ps.status = 'completed'`;
   const params = [];
 

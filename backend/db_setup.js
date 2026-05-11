@@ -104,6 +104,36 @@ async function migrateParkingSessionsPaymentStatus(connection) {
     );
     console.log('- Migration: added parking_sessions.payment_status');
   }
+  if (!names.has('day_rate_snapshot')) {
+    await connection.query(
+      `ALTER TABLE parking_sessions ADD COLUMN day_rate_snapshot DECIMAL(10,2) NULL`
+    );
+    console.log('- Migration: added parking_sessions.day_rate_snapshot');
+  }
+  if (!names.has('night_rate_snapshot')) {
+    await connection.query(
+      `ALTER TABLE parking_sessions ADD COLUMN night_rate_snapshot DECIMAL(10,2) NULL`
+    );
+    console.log('- Migration: added parking_sessions.night_rate_snapshot');
+  }
+  await connection.query(
+    `UPDATE parking_sessions ps
+     JOIN tariffs t ON t.id = ps.tariff_id
+     SET
+       ps.day_rate_snapshot = CASE
+         WHEN t.smart_mode = 1 AND t.smart_type = 'day_night' THEN COALESCE(t.day_price, t.price_per_hour)
+         WHEN t.smart_mode = 1 AND t.smart_type = 'weekday_weekend' THEN COALESCE(t.weekday_price, t.price_per_hour)
+         ELSE t.price_per_hour
+       END,
+       ps.night_rate_snapshot = CASE
+         WHEN t.smart_mode = 1 AND t.smart_type = 'day_night' THEN COALESCE(t.night_price, t.price_per_hour)
+         WHEN t.smart_mode = 1 AND t.smart_type = 'weekday_weekend' THEN COALESCE(t.weekend_price, t.price_per_hour)
+         ELSE t.price_per_hour
+       END
+     WHERE
+       ps.day_rate_snapshot IS NULL OR ps.night_rate_snapshot IS NULL
+       OR (ps.day_rate_snapshot = 0 AND ps.night_rate_snapshot = 0)`
+  );
 }
 
 async function ensureParkingSessionsIndexes(connection) {
@@ -230,6 +260,8 @@ async function initializeDatabase() {
         total_cost DECIMAL(10,2) NULL,
         status ENUM('active', 'completed') NOT NULL DEFAULT 'active',
         payment_status ENUM('unpaid', 'paid') NOT NULL DEFAULT 'unpaid',
+        day_rate_snapshot DECIMAL(10,2) NULL,
+        night_rate_snapshot DECIMAL(10,2) NULL,
         tariff_id INT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT fk_sessions_spot FOREIGN KEY (parking_spot_id) REFERENCES parking_spots(id),

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as api from '../api/client';
-import { formatDateTime, formatMoney, formatTotalHoursDecimal } from '../utils/format';
+import { formatDateTime, formatDurationHours, formatMoney } from '../utils/format';
 
 export default function HistoryPage() {
   const [sessions, setSessions] = useState([]);
@@ -120,7 +120,9 @@ export default function HistoryPage() {
                   <th className="px-4 py-3 text-center">ТЗ</th>
                   <th className="px-4 py-3 text-center">Початок</th>
                   <th className="px-4 py-3 text-center">Кінець</th>
-                  <th className="px-4 py-3 text-center">Годин (разом)</th>
+                  <th className="px-4 py-3 text-center">Тривалість</th>
+                  <th className="px-4 py-3 text-center">Тариф день</th>
+                  <th className="px-4 py-3 text-center">Тариф ніч</th>
                   <th className="px-4 py-3 text-center">Вартість</th>
                   <th className="min-w-[9rem] px-4 py-3 text-center">Оплата</th>
                 </tr>
@@ -161,7 +163,21 @@ export default function HistoryPage() {
                       <td className="px-4 py-3 text-center align-middle">
                         <div className="flex justify-center">
                           <span className="inline-flex min-h-[1.75rem] items-center justify-center font-mono text-sm text-[#4f566b]">
-                            {formatTotalHoursDecimal(s.durationHours)}
+                            {formatDurationHours(s.durationHours)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center align-middle">
+                        <div className="flex justify-center">
+                          <span className="inline-flex min-h-[1.75rem] items-center justify-center font-mono text-sm text-[#4f566b]">
+                            {formatMoney(s.dayRateSnapshot)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center align-middle">
+                        <div className="flex justify-center">
+                          <span className="inline-flex min-h-[1.75rem] items-center justify-center font-mono text-sm text-[#4f566b]">
+                            {formatMoney(s.nightRateSnapshot)}
                           </span>
                         </div>
                       </td>

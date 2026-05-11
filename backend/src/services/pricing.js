@@ -1,10 +1,3 @@
-/**
- * Parking cost by tariff rules (MVP).
- * Basic: billable hours = ceil(duration / 1h), cost = max(min_price, hours * price_per_hour).
- * Smart day/night: split duration into day vs night minutes (local wall clock), ceil each to hours, multiply by rates, then max(min_price, sum).
- * Smart weekday/weekend: same with weekday vs Sat/Sun minutes.
- */
-
 function parseTimeToMinutes(value) {
   if (value == null) return 8 * 60;
   const str = String(value);
@@ -79,12 +72,6 @@ function computeWeekdayWeekendCost(start, end, tariff) {
   return Math.max(Number(tariff.min_price), raw);
 }
 
-/**
- * @param {Date} start
- * @param {Date} end
- * @param {object} tariff - row from tariffs table
- * @returns {number}
- */
 function computeSessionCost(start, end, tariff) {
   if (!start || !end || end <= start) {
     return 0;
@@ -105,11 +92,6 @@ function computeSessionCost(start, end, tariff) {
   return computeBasicCost(start, end, tariff);
 }
 
-/**
- * Поточний сегмент тарифу «зараз» (час сервера Node) для UI.
- * @param {object} tariff - рядок з таблиці tariffs (snake_case)
- * @param {Date} [now]
- */
 function getLiveTariffContext(tariff, now = new Date()) {
   const minPrice = Number(tariff.min_price);
   const baseRate = Number(tariff.price_per_hour);
