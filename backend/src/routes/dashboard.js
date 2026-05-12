@@ -29,7 +29,9 @@ router.get('/', async (req, res) => {
       SELECT
         COALESCE(SUM(total_cost), 0) AS totalRevenue,
         COUNT(*) AS completedSessions,
-        COALESCE(AVG(TIMESTAMPDIFF(MICROSECOND, start_time, end_time)) / 3600000000, 0) AS avgDurationHours
+        COALESCE(AVG(TIMESTAMPDIFF(MICROSECOND, start_time, end_time)) / 3600000000, 0) AS avgDurationHours,
+        MIN(TIMESTAMPDIFF(MICROSECOND, start_time, end_time)) / 3600000000 AS minDurationHours,
+        MAX(TIMESTAMPDIFF(MICROSECOND, start_time, end_time)) / 3600000000 AS maxDurationHours
       FROM parking_sessions
       WHERE status = 'completed' AND end_time IS NOT NULL
     `;
@@ -41,6 +43,8 @@ router.get('/', async (req, res) => {
 
     const [revRows] = await pool.query(revenueSql, params);
     const rev = revRows[0] || {};
+    const completedCount = Number(rev.completedSessions || 0);
+    const hasSessions = completedCount > 0;
 
     res.json({
       spots: {
@@ -53,8 +57,10 @@ router.get('/', async (req, res) => {
         from: allTime ? null : from || null,
         to: allTime ? null : to || null,
         totalRevenue: Number(rev.totalRevenue || 0),
-        completedSessions: Number(rev.completedSessions || 0),
-        averageParkingHours: Number(rev.avgDurationHours || 0),
+        completedSessions: completedCount,
+        averageParkingHours: hasSessions ? Number(rev.avgDurationHours) : null,
+        minParkingHours: hasSessions ? Number(rev.minDurationHours) : null,
+        maxParkingHours: hasSessions ? Number(rev.maxDurationHours) : null,
       },
     });
   } catch (err) {

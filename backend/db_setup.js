@@ -61,9 +61,9 @@ async function migrateParkingSpotsColumns(connection) {
     );
     console.log('- Migration: added parking_spots.price_coefficient');
   }
-  if (!names.has('zone_color')) {
-    await connection.query(`ALTER TABLE parking_spots ADD COLUMN zone_color VARCHAR(32) NULL`);
-    console.log('- Migration: added parking_spots.zone_color');
+  if (names.has('zone_color')) {
+    await connection.query(`ALTER TABLE parking_spots DROP COLUMN zone_color`);
+    console.log('- Migration: dropped parking_spots.zone_color');
   }
 
   const [zoneCol] = await connection.query(
@@ -156,7 +156,6 @@ async function initializeDatabase() {
         zone VARCHAR(120) NULL,
         note VARCHAR(255) NULL,
         price_coefficient DECIMAL(10,4) NOT NULL DEFAULT 1,
-        zone_color VARCHAR(32) NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);

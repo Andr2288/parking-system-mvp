@@ -65,7 +65,7 @@ export default function DashboardPage() {
         </div>
       ) : null}
 
-      <div className="mt-6 flex flex-col gap-4 rounded-xl border border-[#e6ebf1] bg-white p-4 shadow-sm sm:flex-row sm:items-end">
+      <div className="mt-6 flex flex-col gap-4 rounded-xl border border-[#e6ebf1] bg-white p-4 shadow-sm sm:flex-row sm:items-center">
         <label className="flex items-center gap-2 text-sm text-[#1a1f36]">
           <input
             type="checkbox"
@@ -97,13 +97,6 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : null}
-        <button
-          type="button"
-          onClick={() => load().catch((e) => setError(e.message))}
-          className="rounded-md bg-[#635bff] px-4 py-2 text-sm font-semibold text-white sm:ml-auto"
-        >
-          Оновити
-        </button>
       </div>
 
       {!allTime && (!from.trim() || !to.trim()) ? (
@@ -113,7 +106,7 @@ export default function DashboardPage() {
       ) : loading ? (
         <div className="mt-8 text-[#4f566b]">Завантаження…</div>
       ) : data ? (
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-[#e6ebf1] bg-white p-5 shadow-sm">
             <p className="text-xs font-semibold uppercase text-[#635bff]">Місця</p>
             <p className="mt-2 text-3xl font-semibold text-[#1a1f36]">{spots.total}</p>
@@ -144,6 +137,18 @@ export default function DashboardPage() {
             <p className="text-xs font-semibold uppercase text-[#635bff]">Середній час</p>
             <p className="mt-2 text-2xl font-semibold text-[#1a1f36]">
               {formatDurationHours(analytics.averageParkingHours)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-[#e6ebf1] bg-white p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase text-[#635bff]">Мін. час</p>
+            <p className="mt-2 text-2xl font-semibold text-[#1a1f36]">
+              {formatDurationHours(analytics.minParkingHours)}
+            </p>
+          </div>
+          <div className="rounded-xl border border-[#e6ebf1] bg-white p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase text-[#635bff]">Макс. час</p>
+            <p className="mt-2 text-2xl font-semibold text-[#1a1f36]">
+              {formatDurationHours(analytics.maxParkingHours)}
             </p>
           </div>
         </div>

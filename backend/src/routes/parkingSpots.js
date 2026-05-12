@@ -6,17 +6,6 @@ const router = express.Router();
 
 router.use(requireAuth);
 
-function normalizeZoneColor(value) {
-  if (value == null || value === '') {
-    return { ok: true, color: null };
-  }
-  const s = String(value).trim();
-  if (!/^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/.test(s)) {
-    return { ok: false, error: 'Колір зони: формат #RGB або #RRGGBB (наприклад #22c55e)' };
-  }
-  return { ok: true, color: s };
-}
-
 router.get('/', async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -27,7 +16,6 @@ router.get('/', async (req, res) => {
          p.zone,
          p.note,
          p.price_coefficient AS priceCoefficient,
-         p.zone_color AS zoneColor,
          ps.id AS activeSessionId,
          ps.start_time AS activeSessionStartTime
        FROM parking_spots p
@@ -53,8 +41,7 @@ router.put('/:id', async (req, res) => {
   const hasAny =
     body.zone !== undefined ||
     body.note !== undefined ||
-    body.priceCoefficient !== undefined ||
-    body.zoneColor !== undefined;
+    body.priceCoefficient !== undefined;
 
   if (!hasAny) {
     res.status(400).json({ error: 'Nothing to update' });
@@ -83,15 +70,6 @@ router.put('/:id', async (req, res) => {
     fields.push('price_coefficient = ?');
     values.push(c);
   }
-  if (body.zoneColor !== undefined) {
-    const parsed = normalizeZoneColor(body.zoneColor);
-    if (!parsed.ok) {
-      res.status(400).json({ error: parsed.error });
-      return;
-    }
-    fields.push('zone_color = ?');
-    values.push(parsed.color);
-  }
 
   values.push(id);
 
@@ -113,7 +91,6 @@ router.put('/:id', async (req, res) => {
          p.zone,
          p.note,
          p.price_coefficient AS priceCoefficient,
-         p.zone_color AS zoneColor,
          ps.id AS activeSessionId,
          ps.start_time AS activeSessionStartTime
        FROM parking_spots p

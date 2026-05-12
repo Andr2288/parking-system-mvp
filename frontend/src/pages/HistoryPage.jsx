@@ -32,18 +32,9 @@ export default function HistoryPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-[#1a1f36]">Історія сесій</h1>
-          <p className="text-sm text-[#4f566b]">Завершені сесії, від новіших до старіших.</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => load().catch((e) => setError(e.message))}
-          className="self-start rounded-md border border-[#e6ebf1] bg-white px-3 py-2 text-sm font-medium"
-        >
-          Оновити
-        </button>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-[#1a1f36]">Історія сесій</h1>
+        <p className="mt-1 text-sm text-[#4f566b]">Завершені сесії, від новіших до старіших.</p>
       </div>
 
       {error ? (

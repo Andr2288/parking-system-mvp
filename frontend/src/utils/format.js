@@ -18,6 +18,7 @@ export function formatDateTime(value) {
 }
 
 export function formatDurationHours(value) {
+  if (value == null) return '—';
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) return '—';
   const h = Math.floor(n);

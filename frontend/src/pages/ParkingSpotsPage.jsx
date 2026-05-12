@@ -1,14 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as api from '../api/client';
-
-const ZONE_COLOR_PRESETS = [
-  { label: 'Зелений', value: '#16a34a' },
-  { label: 'Синій', value: '#2563eb' },
-  { label: 'Фіолетовий', value: '#7c3aed' },
-  { label: 'Помаранчевий', value: '#ea580c' },
-  { label: 'Бірюзовий', value: '#0d9488' },
-  { label: 'Сірий', value: '#64748b' },
-];
 
 function StatusBadge({ status }) {
   const isFree = status === 'free';
@@ -24,7 +15,7 @@ function StatusBadge({ status }) {
   );
 }
 
-function ZoneCell({ zone, zoneColor }) {
+function ZoneCell({ zone }) {
   if (!zone) {
     return (
       <span className="inline-flex min-h-[1.75rem] min-w-[2.5rem] items-center justify-center text-[#4f566b]">
@@ -32,11 +23,9 @@ function ZoneCell({ zone, zoneColor }) {
       </span>
     );
   }
-  const border = zoneColor && /^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/i.test(zoneColor) ? zoneColor : '#94a3b8';
   return (
     <span
       className="inline-block max-w-[220px] truncate rounded-md border border-[#e6ebf1] bg-white px-2 py-1 text-left text-xs font-medium text-[#1a1f36]"
-      style={{ borderLeftWidth: 4, borderLeftColor: border }}
       title={zone}
     >
       {zone}
@@ -80,11 +69,48 @@ export default function ParkingSpotsPage() {
   const [editZone, setEditZone] = useState('');
   const [editNote, setEditNote] = useState('');
   const [editCoeff, setEditCoeff] = useState('1');
-  const [editColor, setEditColor] = useState('');
   const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [newPlate, setNewPlate] = useState('');
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const [searchQuery, setSearchQuery] = useState('');
+  const [zoneFilter, setZoneFilter] = useState('');
+
+  const zoneOptions = useMemo(() => {
+    const set = new Set();
+    for (const s of spots) {
+      const z = typeof s.zone === 'string' ? s.zone.trim() : '';
+      if (z) set.add(z);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, 'uk'));
+  }, [spots]);
+
+  const hasUnzonedSpots = useMemo(
+    () => spots.some((s) => !String(s.zone ?? '').trim()),
+    [spots],
+  );
+
+  useEffect(() => {
+    if (zoneFilter === '__none__' && !hasUnzonedSpots) setZoneFilter('');
+    else if (zoneFilter && zoneFilter !== '__none__' && !zoneOptions.includes(zoneFilter)) {
+      setZoneFilter('');
+    }
+  }, [zoneFilter, hasUnzonedSpots, zoneOptions]);
+
+  const filteredSpots = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return spots.filter((s) => {
+      if (zoneFilter === '__none__') {
+        if (String(s.zone ?? '').trim()) return false;
+      } else if (zoneFilter !== '') {
+        if (String(s.zone ?? '').trim() !== zoneFilter) return false;
+      }
+      if (!q) return true;
+      const num = String(s.spotNumber ?? '').toLowerCase();
+      const zone = String(s.zone ?? '').toLowerCase();
+      return num.includes(q) || zone.includes(q);
+    });
+  }, [spots, searchQuery, zoneFilter]);
 
   const hasOccupiedSpots = spots.some((s) => s.status === 'occupied');
 
@@ -131,7 +157,6 @@ export default function ParkingSpotsPage() {
     setEditZone(spot.zone || '');
     setEditNote(spot.note || '');
     setEditCoeff(formatCoeff(spot.priceCoefficient ?? 1));
-    setEditColor(spot.zoneColor || '');
   }
 
   async function saveEdit() {
@@ -143,7 +168,6 @@ export default function ParkingSpotsPage() {
         zone: editZone,
         note: editNote,
         priceCoefficient: Number(editCoeff),
-        zoneColor: editColor.trim() || null,
       };
       await api.request(`/api/parking-spots/${editSpot.id}`, {
         method: 'PUT',
@@ -227,20 +251,11 @@ export default function ParkingSpotsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-[#1a1f36]">Паркомісця</h1>
-          <p className="text-sm text-[#4f566b]">
-            Статус місць, зона та коефіцієнт оплати (множник до суми за тарифом), редагування місця.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => loadSpots().catch((e) => setError(e.message))}
-          className="self-start rounded-md border border-[#e6ebf1] bg-white px-3 py-2 text-sm font-medium text-[#1a1f36] hover:bg-slate-50"
-        >
-          Оновити
-        </button>
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold text-[#1a1f36]">Паркомісця</h1>
+        <p className="mt-1 text-sm text-[#4f566b]">
+          Статус місць, зона та коефіцієнт оплати (множник до суми за тарифом), редагування місця.
+        </p>
       </div>
 
       {error ? (
@@ -253,7 +268,48 @@ export default function ParkingSpotsPage() {
         {loading ? (
           <div className="p-8 text-center text-[#4f566b]">Завантаження…</div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            <div className="flex flex-col gap-3 border-b border-[#e6ebf1] bg-slate-50/50 p-4 sm:flex-row sm:flex-wrap sm:items-center">
+              <div className="min-w-[12rem] flex-1 sm:max-w-xs">
+                <label htmlFor="spots-search" className="text-xs font-medium text-[#4f566b]">
+                  Пошук
+                </label>
+                <input
+                  id="spots-search"
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Номер місця або зона…"
+                  className="mt-1 w-full rounded-md border border-[#e6ebf1] bg-white px-3 py-2 text-sm text-[#1a1f36] placeholder:text-[#94a3b8]"
+                  autoComplete="off"
+                />
+              </div>
+              <div className="min-w-[10rem] sm:w-56">
+                <label htmlFor="spots-zone" className="text-xs font-medium text-[#4f566b]">
+                  Зона
+                </label>
+                <select
+                  id="spots-zone"
+                  value={zoneFilter}
+                  onChange={(e) => setZoneFilter(e.target.value)}
+                  className="mt-1 w-full rounded-md border border-[#e6ebf1] bg-white px-3 py-2 text-sm text-[#1a1f36]"
+                >
+                  <option value="">Усі зони</option>
+                  {zoneOptions.map((z) => (
+                    <option key={z} value={z}>
+                      {z}
+                    </option>
+                  ))}
+                  {hasUnzonedSpots ? (
+                    <option value="__none__">Без зони</option>
+                  ) : null}
+                </select>
+              </div>
+              <p className="text-xs text-[#4f566b] sm:ml-auto">
+                Показано {filteredSpots.length} з {spots.length}
+              </p>
+            </div>
+            <div className="overflow-x-auto">
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-[#e6ebf1] bg-slate-50 text-xs font-semibold uppercase tracking-wide text-[#4f566b]">
                 <tr>
@@ -265,7 +321,14 @@ export default function ParkingSpotsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6ebf1]">
-                {spots.map((s) => (
+                {filteredSpots.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-10 text-center text-[#4f566b]">
+                      Немає місць за обраними фільтрами.
+                    </td>
+                  </tr>
+                ) : (
+                filteredSpots.map((s) => (
                   <tr key={s.id} className="text-[#1a1f36]">
                     <td className="px-4 py-3 text-center align-middle">
                       <div className="flex justify-center">
@@ -286,7 +349,7 @@ export default function ParkingSpotsPage() {
                     </td>
                     <td className="px-4 py-3 text-center align-middle">
                       <div className="flex justify-center">
-                        <ZoneCell zone={s.zone} zoneColor={s.zoneColor} />
+                        <ZoneCell zone={s.zone} />
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center align-middle">
@@ -330,10 +393,12 @@ export default function ParkingSpotsPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                ))
+                )}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </div>
 
@@ -342,7 +407,7 @@ export default function ParkingSpotsPage() {
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-[#e6ebf1] bg-white p-6 shadow-lg">
             <h2 className="text-lg font-semibold text-[#1a1f36]">Місце {editSpot.spotNumber}</h2>
             <p className="mt-1 text-sm text-[#4f566b]">
-              Зона (текст), колір мітки, примітка та коефіцієнт до суми за тарифом (1 = без зміни, 0.5 = вдвічі дешевше).
+              Зона (текст), примітка та коефіцієнт до суми за тарифом (1 = без зміни, 0.5 = вдвічі дешевше).
             </p>
 
             <div className="mt-5 space-y-4">
@@ -355,44 +420,6 @@ export default function ParkingSpotsPage() {
                   onChange={(e) => setEditZone(e.target.value)}
                   maxLength={120}
                 />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-[#1a1f36]">Колір мітки зони</label>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <input
-                    type="color"
-                    className="h-10 w-14 cursor-pointer rounded border border-[#e6ebf1] bg-white p-1"
-                    value={/^#[0-9A-Fa-f]{6}$/i.test(editColor) ? editColor : '#635bff'}
-                    onChange={(e) => setEditColor(e.target.value)}
-                  />
-                  <input
-                    className="min-w-0 flex-1 rounded-md border border-[#e6ebf1] px-3 py-2 font-mono text-sm"
-                    placeholder="#22c55e або порожньо"
-                    value={editColor}
-                    onChange={(e) => setEditColor(e.target.value.trim())}
-                  />
-                  <button
-                    type="button"
-                    className="rounded-md border border-[#e6ebf1] px-2 py-1 text-xs"
-                    onClick={() => setEditColor('')}
-                  >
-                    Без кольору
-                  </button>
-                </div>
-                <p className="mt-1 text-xs text-[#4f566b]">Формат: #RGB або #RRGGBB. Швидкий вибір:</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {ZONE_COLOR_PRESETS.map((p) => (
-                    <button
-                      key={p.value}
-                      type="button"
-                      className="rounded-full border border-[#e6ebf1] px-2 py-1 text-xs hover:bg-slate-50"
-                      style={{ borderLeftWidth: 4, borderLeftColor: p.value }}
-                      onClick={() => setEditColor(p.value)}
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
               </div>
               <div>
                 <label className="text-sm font-medium text-[#1a1f36]">Примітка</label>
