@@ -34,7 +34,6 @@ export default function HistoryPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-[#1a1f36]">Історія сесій</h1>
-        <p className="mt-1 text-sm text-[#4f566b]">Завершені сесії, від новіших до старіших.</p>
       </div>
 
       {error ? (

@@ -95,9 +95,6 @@ export default function TariffPage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold text-[#1a1f36]">Тарифи</h1>
-      <p className="mt-1 text-sm text-[#4f566b]">
-        Базова ставка та мінімальна ціна; опційно розумні тарифи (день/ніч або будні/вихідні).
-      </p>
 
       {error ? (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">

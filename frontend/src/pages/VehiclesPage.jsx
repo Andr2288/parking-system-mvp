@@ -99,7 +99,6 @@ export default function VehiclesPage() {
   return (
     <div>
       <h1 className="text-2xl font-semibold text-[#1a1f36]">Транспортні засоби</h1>
-      <p className="mt-1 text-sm text-[#4f566b]">Довідник ТЗ: додавання, редагування, архівування.</p>
 
       {error ? (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">

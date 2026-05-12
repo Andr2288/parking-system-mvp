@@ -75,6 +75,11 @@ export default function ParkingSpotsPage() {
   const [now, setNow] = useState(() => new Date());
   const [searchQuery, setSearchQuery] = useState('');
   const [zoneFilter, setZoneFilter] = useState('');
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createNumber, setCreateNumber] = useState('');
+  const [createZone, setCreateZone] = useState('');
+  const [createNote, setCreateNote] = useState('');
+  const [createCoeff, setCreateCoeff] = useState('1');
 
   const zoneOptions = useMemo(() => {
     const set = new Set();
@@ -249,294 +254,537 @@ export default function ParkingSpotsPage() {
     }
   }
 
+  function openCreateModal() {
+    setError('');
+    setCreateNumber('');
+    setCreateZone('');
+    setCreateNote('');
+    setCreateCoeff('1');
+    setCreateOpen(true);
+  }
+
+  async function saveCreate() {
+    const num = createNumber.trim();
+    if (!num) {
+      setError('Вкажіть номер місця');
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await api.request('/api/parking-spots', {
+        method: 'POST',
+        body: JSON.stringify({
+          spotNumber: num,
+          zone: createZone,
+          note: createNote,
+          priceCoefficient: Number(createCoeff),
+        }),
+      });
+      setCreateOpen(false);
+      await loadSpots();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleDeleteSpot(spot) {
+    const ok = window.confirm(
+      `Видалити місце «${spot.spotNumber}»? Цю дію неможна скасувати.`,
+    );
+    if (!ok) return;
+    setBusy(true);
+    setError('');
+    try {
+      await api.request(`/api/parking-spots/${spot.id}`, { method: 'DELETE' });
+      setEditSpot(null);
+      await loadSpots();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-[#1a1f36]">Паркомісця</h1>
-        <p className="mt-1 text-sm text-[#4f566b]">
-          Статус місць, зона та коефіцієнт оплати (множник до суми за тарифом), редагування місця.
-        </p>
-      </div>
-
-      {error ? (
-        <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-          {error}
-        </div>
-      ) : null}
-
-      <div className="overflow-hidden rounded-xl border border-[#e6ebf1] bg-white shadow-sm">
-        {loading ? (
-          <div className="p-8 text-center text-[#4f566b]">Завантаження…</div>
-        ) : (
-          <>
-            <div className="flex flex-col gap-3 border-b border-[#e6ebf1] bg-slate-50/50 p-4 sm:flex-row sm:flex-wrap sm:items-center">
-              <div className="min-w-[12rem] flex-1 sm:max-w-xs">
-                <label htmlFor="spots-search" className="text-xs font-medium text-[#4f566b]">
-                  Пошук
-                </label>
-                <input
-                  id="spots-search"
-                  type="search"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Номер місця або зона…"
-                  className="mt-1 w-full rounded-md border border-[#e6ebf1] bg-white px-3 py-2 text-sm text-[#1a1f36] placeholder:text-[#94a3b8]"
-                  autoComplete="off"
-                />
-              </div>
-              <div className="min-w-[10rem] sm:w-56">
-                <label htmlFor="spots-zone" className="text-xs font-medium text-[#4f566b]">
-                  Зона
-                </label>
-                <select
-                  id="spots-zone"
-                  value={zoneFilter}
-                  onChange={(e) => setZoneFilter(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-[#e6ebf1] bg-white px-3 py-2 text-sm text-[#1a1f36]"
-                >
-                  <option value="">Усі зони</option>
-                  {zoneOptions.map((z) => (
-                    <option key={z} value={z}>
-                      {z}
-                    </option>
-                  ))}
-                  {hasUnzonedSpots ? (
-                    <option value="__none__">Без зони</option>
-                  ) : null}
-                </select>
-              </div>
-              <p className="text-xs text-[#4f566b] sm:ml-auto">
-                Показано {filteredSpots.length} з {spots.length}
-              </p>
-            </div>
-            <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
-              <thead className="border-b border-[#e6ebf1] bg-slate-50 text-xs font-semibold uppercase tracking-wide text-[#4f566b]">
-                <tr>
-                  <th className="px-4 py-3 text-center">Номер</th>
-                  <th className="px-4 py-3 text-center">Статус</th>
-                  <th className="px-4 py-3 text-center">Зона</th>
-                  <th className="px-4 py-3 text-center">Коеф.</th>
-                  <th className="w-36 px-4 py-3 text-center">Дії</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#e6ebf1]">
-                {filteredSpots.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-[#4f566b]">
-                      Немає місць за обраними фільтрами.
-                    </td>
-                  </tr>
-                ) : (
-                filteredSpots.map((s) => (
-                  <tr key={s.id} className="text-[#1a1f36]">
-                    <td className="px-4 py-3 text-center align-middle">
-                      <div className="flex justify-center">
-                        <span className="inline-flex min-h-[1.75rem] items-center justify-center font-mono text-sm font-semibold text-[#1a1f36]">
-                          {s.spotNumber}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <div className="flex flex-col items-center gap-1.5">
-                        <StatusBadge status={s.status} />
-                        {s.status === 'occupied' ? (
-                          <div className="font-mono text-xs font-semibold tabular-nums text-[#1a1f36]">
-                            {formatOccupiedElapsed(s.activeSessionStartTime, now) ?? '—'}
-                          </div>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center align-middle">
-                      <div className="flex justify-center">
-                        <ZoneCell zone={s.zone} />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center align-middle">
-                      <div className="flex justify-center">
-                        <span className="inline-flex min-h-[1.75rem] min-w-[2.5rem] items-center justify-center font-mono text-sm font-medium text-[#4f566b]">
-                          {formatCoeff(s.priceCoefficient ?? 1)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-center align-middle">
-                      <div className="flex justify-center">
-                        <div className="flex w-36 flex-col gap-2">
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => openEdit(s)}
-                          className="w-full rounded-md border border-[#e6ebf1] bg-white px-2 py-2 text-xs font-semibold text-[#1a1f36] hover:bg-slate-50"
-                        >
-                          Змінити
-                        </button>
-                        {s.status === 'free' ? (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => openStartModal(s)}
-                            className="w-full rounded-md bg-[#635bff] px-2 py-2 text-xs font-semibold text-white hover:bg-[#5851e6] disabled:opacity-50"
-                          >
-                            Зайняти
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={busy || !s.activeSessionId}
-                            onClick={() => handleEndSession(s.activeSessionId)}
-                            className="w-full rounded-md border border-[#e6ebf1] bg-white px-2 py-2 text-xs font-semibold text-[#1a1f36] hover:bg-slate-50 disabled:opacity-50"
-                          >
-                            Звільнити
-                          </button>
-                        )}
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-                )}
-              </tbody>
-            </table>
-            </div>
-          </>
-        )}
-      </div>
-
-      {editSpot ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-[#e6ebf1] bg-white p-6 shadow-lg">
-            <h2 className="text-lg font-semibold text-[#1a1f36]">Місце {editSpot.spotNumber}</h2>
-            <p className="mt-1 text-sm text-[#4f566b]">
-              Зона (текст), примітка та коефіцієнт до суми за тарифом (1 = без зміни, 0.5 = вдвічі дешевше).
-            </p>
-
-            <div className="mt-5 space-y-4">
+      <div>
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <label className="text-sm font-medium text-[#1a1f36]">Зона</label>
-                <input
-                  className="mt-1 w-full rounded-md border border-[#e6ebf1] px-3 py-2 text-sm"
-                  placeholder="Напр.: для людей з інвалідністю, електромобілів…"
-                  value={editZone}
-                  onChange={(e) => setEditZone(e.target.value)}
-                  maxLength={120}
-                />
+                  <h1 className="text-2xl font-semibold text-[#1a1f36]">
+                      Паркомісця
+                  </h1>
               </div>
-              <div>
-                <label className="text-sm font-medium text-[#1a1f36]">Примітка</label>
-                <input
-                  className="mt-1 w-full rounded-md border border-[#e6ebf1] px-3 py-2 text-sm"
-                  placeholder="Внутрішня примітка (необов’язково)"
-                  value={editNote}
-                  onChange={(e) => setEditNote(e.target.value)}
-                  maxLength={255}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-[#1a1f36]">Коефіцієнт оплати</label>
-                <input
-                  type="number"
-                  min="0.01"
-                  max="10"
-                  step="0.01"
-                  className="mt-1 w-full rounded-md border border-[#e6ebf1] px-3 py-2 font-mono text-sm"
-                  value={editCoeff}
-                  onChange={(e) => setEditCoeff(e.target.value)}
-                />
-                <p className="mt-1 text-xs text-[#4f566b]">
-                  Підсумок за сесію = сума за тарифом (день/ніч тощо) × коефіцієнт. За замовчуванням 1.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-2">
               <button
-                type="button"
-                disabled={busy}
-                onClick={() => setEditSpot(null)}
-                className="rounded-md border border-[#e6ebf1] bg-white px-4 py-2 text-sm font-medium"
-              >
-                Скасувати
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={saveEdit}
-                className="rounded-md bg-[#635bff] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5851e6]"
-              >
-                Зберегти
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {modalSpot ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl border border-[#e6ebf1] bg-white p-6 shadow-lg">
-            <h2 className="text-lg font-semibold text-[#1a1f36]">
-              Початок паркування — {modalSpot.spotNumber}
-            </h2>
-            <p className="mt-1 text-sm text-[#4f566b]">Оберіть ТЗ з довідника або додайте новий номер.</p>
-
-            <div className="mt-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#1a1f36]" htmlFor="vehicle">
-                  Транспортний засіб
-                </label>
-                <select
-                  id="vehicle"
-                  className="mt-1 w-full rounded-md border border-[#e6ebf1] px-3 py-2 text-[#1a1f36]"
-                  value={selectedVehicleId}
-                  onChange={(e) => setSelectedVehicleId(e.target.value)}
-                >
-                  <option value="">— оберіть —</option>
-                  {vehicles.map((v) => (
-                    <option key={v.id} value={v.id} disabled={v.onParking}>
-                      {v.licensePlate}
-                      {v.onParking ? ' (на парковці)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <input
-                  className="flex-1 rounded-md border border-[#e6ebf1] px-3 py-2 text-sm"
-                  placeholder="Новий номерний знак"
-                  value={newPlate}
-                  onChange={(e) => setNewPlate(e.target.value)}
-                />
-                <button
                   type="button"
-                  disabled={busy || !newPlate.trim()}
-                  onClick={handleAddVehicle}
-                  className="rounded-md border border-[#e6ebf1] bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Додати
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => setModalSpot(null)}
-                className="rounded-md border border-[#e6ebf1] bg-white px-4 py-2 text-sm font-medium"
+                  disabled={busy || loading}
+                  onClick={openCreateModal}
+                  className="shrink-0 rounded-md bg-[#635bff] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#5851e6] disabled:opacity-50"
               >
-                Скасувати
+                  Створити місце
               </button>
-              <button
-                type="button"
-                disabled={busy || !selectedVehicleId}
-                onClick={handleStartSession}
-                className="rounded-md bg-[#635bff] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5851e6] disabled:opacity-50"
-              >
-                Почати
-              </button>
-            </div>
           </div>
-        </div>
-      ) : null}
-    </div>
+
+          {error ? (
+              <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  {error}
+              </div>
+          ) : null}
+
+          <div className="overflow-hidden rounded-xl border border-[#e6ebf1] bg-white shadow-sm">
+              {loading ? (
+                  <div className="p-8 text-center text-[#4f566b]">
+                      Завантаження…
+                  </div>
+              ) : (
+                  <>
+                      <div className="flex flex-col gap-3 border-b border-[#e6ebf1] bg-slate-50/50 p-4 sm:flex-row sm:flex-wrap sm:items-center">
+                          <div className="min-w-[12rem] flex-1 sm:max-w-xs">
+                              <label
+                                  htmlFor="spots-search"
+                                  className="text-xs font-medium text-[#4f566b]"
+                              >
+                                  Пошук
+                              </label>
+                              <input
+                                  id="spots-search"
+                                  type="search"
+                                  value={searchQuery}
+                                  onChange={(e) =>
+                                      setSearchQuery(e.target.value)
+                                  }
+                                  placeholder="Номер місця або зона…"
+                                  className="mt-1 w-full rounded-md border border-[#e6ebf1] bg-white px-3 py-2 text-sm text-[#1a1f36] placeholder:text-[#94a3b8]"
+                                  autoComplete="off"
+                              />
+                          </div>
+                          <div className="min-w-[10rem] sm:w-56">
+                              <label
+                                  htmlFor="spots-zone"
+                                  className="text-xs font-medium text-[#4f566b]"
+                              >
+                                  Зона
+                              </label>
+                              <select
+                                  id="spots-zone"
+                                  value={zoneFilter}
+                                  onChange={(e) =>
+                                      setZoneFilter(e.target.value)
+                                  }
+                                  className="mt-1 w-full rounded-md border border-[#e6ebf1] bg-white px-3 py-2 text-sm text-[#1a1f36]"
+                              >
+                                  <option value="">Усі зони</option>
+                                  {zoneOptions.map((z) => (
+                                      <option key={z} value={z}>
+                                          {z}
+                                      </option>
+                                  ))}
+                                  {hasUnzonedSpots ? (
+                                      <option value="__none__">Без зони</option>
+                                  ) : null}
+                              </select>
+                          </div>
+                      </div>
+                      <div className="overflow-x-auto">
+                          <table className="min-w-full text-left text-sm">
+                              <thead className="border-b border-[#e6ebf1] bg-slate-50 text-xs font-semibold uppercase tracking-wide text-[#4f566b]">
+                                  <tr>
+                                      <th className="px-4 py-3 text-center">
+                                          Номер
+                                      </th>
+                                      <th className="px-4 py-3 text-center">
+                                          Статус
+                                      </th>
+                                      <th className="px-4 py-3 text-center">
+                                          Зона
+                                      </th>
+                                      <th className="px-4 py-3 text-center">
+                                          Коеф.
+                                      </th>
+                                      <th className="w-36 px-4 py-3 text-center">
+                                          Дії
+                                      </th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y divide-[#e6ebf1]">
+                                  {filteredSpots.length === 0 ? (
+                                      <tr>
+                                          <td
+                                              colSpan={5}
+                                              className="px-4 py-10 text-center text-[#4f566b]"
+                                          >
+                                              Немає місць за обраними фільтрами.
+                                          </td>
+                                      </tr>
+                                  ) : (
+                                      filteredSpots.map((s) => (
+                                          <tr
+                                              key={s.id}
+                                              className="text-[#1a1f36]"
+                                          >
+                                              <td className="px-4 py-3 text-center align-middle">
+                                                  <div className="flex justify-center">
+                                                      <span className="inline-flex min-h-[1.75rem] items-center justify-center font-mono text-sm font-semibold text-[#1a1f36]">
+                                                          {s.spotNumber}
+                                                      </span>
+                                                  </div>
+                                              </td>
+                                              <td className="px-4 py-3 text-center">
+                                                  <div className="flex flex-col items-center gap-1.5">
+                                                      <StatusBadge
+                                                          status={s.status}
+                                                      />
+                                                      {s.status ===
+                                                      "occupied" ? (
+                                                          <div className="font-mono text-xs font-semibold tabular-nums text-[#1a1f36]">
+                                                              {formatOccupiedElapsed(
+                                                                  s.activeSessionStartTime,
+                                                                  now
+                                                              ) ?? "—"}
+                                                          </div>
+                                                      ) : null}
+                                                  </div>
+                                              </td>
+                                              <td className="px-4 py-3 text-center align-middle">
+                                                  <div className="flex justify-center">
+                                                      <ZoneCell zone={s.zone} />
+                                                  </div>
+                                              </td>
+                                              <td className="px-4 py-3 text-center align-middle">
+                                                  <div className="flex justify-center">
+                                                      <span className="inline-flex min-h-[1.75rem] min-w-[2.5rem] items-center justify-center font-mono text-sm font-medium text-[#4f566b]">
+                                                          {formatCoeff(
+                                                              s.priceCoefficient ??
+                                                                  1
+                                                          )}
+                                                      </span>
+                                                  </div>
+                                              </td>
+                                              <td className="px-4 py-3 text-center align-middle">
+                                                  <div className="flex justify-center">
+                                                      <div className="flex w-36 flex-col gap-2">
+                                                          <button
+                                                              type="button"
+                                                              disabled={busy}
+                                                              onClick={() =>
+                                                                  openEdit(s)
+                                                              }
+                                                              className="w-full rounded-md border border-[#e6ebf1] bg-white px-2 py-2 text-xs font-semibold text-[#1a1f36] hover:bg-slate-50"
+                                                          >
+                                                              Змінити
+                                                          </button>
+                                                          {s.status ===
+                                                          "free" ? (
+                                                              <button
+                                                                  type="button"
+                                                                  disabled={
+                                                                      busy
+                                                                  }
+                                                                  onClick={() =>
+                                                                      openStartModal(
+                                                                          s
+                                                                      )
+                                                                  }
+                                                                  className="w-full rounded-md bg-[#635bff] px-2 py-2 text-xs font-semibold text-white hover:bg-[#5851e6] disabled:opacity-50"
+                                                              >
+                                                                  Зайняти
+                                                              </button>
+                                                          ) : (
+                                                              <button
+                                                                  type="button"
+                                                                  disabled={
+                                                                      busy ||
+                                                                      !s.activeSessionId
+                                                                  }
+                                                                  onClick={() =>
+                                                                      handleEndSession(
+                                                                          s.activeSessionId
+                                                                      )
+                                                                  }
+                                                                  className="w-full rounded-md border border-[#e6ebf1] bg-white px-2 py-2 text-xs font-semibold text-[#1a1f36] hover:bg-slate-50 disabled:opacity-50"
+                                                              >
+                                                                  Звільнити
+                                                              </button>
+                                                          )}
+                                                      </div>
+                                                  </div>
+                                              </td>
+                                          </tr>
+                                      ))
+                                  )}
+                              </tbody>
+                          </table>
+                      </div>
+                  </>
+              )}
+          </div>
+
+          {createOpen ? (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                  <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-[#e6ebf1] bg-white p-6 shadow-lg">
+                      <h2 className="text-lg font-semibold text-[#1a1f36]">
+                          Нове паркомісце
+                      </h2>
+                      <p className="mt-1 text-sm text-[#4f566b]">
+                          Номер має бути унікальним (до 20 символів). Коефіцієнт
+                          за замовчуванням - 1.
+                      </p>
+
+                      <div className="mt-5 space-y-4">
+                          <div>
+                              <label className="text-sm font-medium text-[#1a1f36]">
+                                  Номер місця
+                              </label>
+                              <input
+                                  className="mt-1 w-full rounded-md border border-[#e6ebf1] px-3 py-2 font-mono text-sm"
+                                  placeholder="Напр.: B-12, VIP-01"
+                                  value={createNumber}
+                                  onChange={(e) =>
+                                      setCreateNumber(e.target.value)
+                                  }
+                                  maxLength={20}
+                                  autoFocus
+                              />
+                          </div>
+                          <div>
+                              <label className="text-sm font-medium text-[#1a1f36]">
+                                  Зона
+                              </label>
+                              <input
+                                  className="mt-1 w-full rounded-md border border-[#e6ebf1] px-3 py-2 text-sm"
+                                  placeholder="Необов’язково"
+                                  value={createZone}
+                                  onChange={(e) =>
+                                      setCreateZone(e.target.value)
+                                  }
+                                  maxLength={120}
+                              />
+                          </div>
+                          <div>
+                              <label className="text-sm font-medium text-[#1a1f36]">
+                                  Примітка
+                              </label>
+                              <input
+                                  className="mt-1 w-full rounded-md border border-[#e6ebf1] px-3 py-2 text-sm"
+                                  placeholder="Необов’язково"
+                                  value={createNote}
+                                  onChange={(e) =>
+                                      setCreateNote(e.target.value)
+                                  }
+                                  maxLength={255}
+                              />
+                          </div>
+                          <div>
+                              <label className="text-sm font-medium text-[#1a1f36]">
+                                  Коефіцієнт оплати
+                              </label>
+                              <input
+                                  type="number"
+                                  min="0.01"
+                                  max="10"
+                                  step="0.01"
+                                  className="mt-1 w-full rounded-md border border-[#e6ebf1] px-3 py-2 font-mono text-sm"
+                                  value={createCoeff}
+                                  onChange={(e) =>
+                                      setCreateCoeff(e.target.value)
+                                  }
+                              />
+                          </div>
+                      </div>
+
+                      <div className="mt-6 flex justify-end gap-2">
+                          <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => setCreateOpen(false)}
+                              className="rounded-md border border-[#e6ebf1] bg-white px-4 py-2 text-sm font-medium"
+                          >
+                              Скасувати
+                          </button>
+                          <button
+                              type="button"
+                              disabled={busy}
+                              onClick={saveCreate}
+                              className="rounded-md bg-[#635bff] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5851e6]"
+                          >
+                              Створити
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          ) : null}
+
+          {editSpot ? (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                  <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-[#e6ebf1] bg-white p-6 shadow-lg">
+                      <h2 className="text-lg font-semibold text-[#1a1f36]">
+                          Місце {editSpot.spotNumber}
+                      </h2>
+                      <p className="mt-1 text-sm text-[#4f566b]">
+                          Номер має бути унікальним (до 20 символів). Коефіцієнт
+                          за замовчуванням - 1.
+                      </p>
+
+                      <div className="mt-5 space-y-4">
+                          <div>
+                              <label className="text-sm font-medium text-[#1a1f36]">
+                                  Зона
+                              </label>
+                              <input
+                                  className="mt-1 w-full rounded-md border border-[#e6ebf1] px-3 py-2 text-sm"
+                                  placeholder="Напр.: для людей з інвалідністю, електромобілів…"
+                                  value={editZone}
+                                  onChange={(e) => setEditZone(e.target.value)}
+                                  maxLength={120}
+                              />
+                          </div>
+                          <div>
+                              <label className="text-sm font-medium text-[#1a1f36]">
+                                  Примітка
+                              </label>
+                              <input
+                                  className="mt-1 w-full rounded-md border border-[#e6ebf1] px-3 py-2 text-sm"
+                                  placeholder="Внутрішня примітка (необов’язково)"
+                                  value={editNote}
+                                  onChange={(e) => setEditNote(e.target.value)}
+                                  maxLength={255}
+                              />
+                          </div>
+                          <div>
+                              <label className="text-sm font-medium text-[#1a1f36]">
+                                  Коефіцієнт оплати
+                              </label>
+                              <input
+                                  type="number"
+                                  min="0.01"
+                                  max="10"
+                                  step="0.01"
+                                  className="mt-1 w-full rounded-md border border-[#e6ebf1] px-3 py-2 font-mono text-sm"
+                                  value={editCoeff}
+                                  onChange={(e) => setEditCoeff(e.target.value)}
+                              />
+                              <p className="mt-1 text-xs text-[#4f566b]">
+                                  Сума за тарифом (наприклад день/ніч) × коефіцієнт.
+                              </p>
+                          </div>
+                      </div>
+
+                      <div className="mt-6 flex flex-col gap-3 border-t border-[#e6ebf1] pt-6 sm:flex-row sm:items-center sm:justify-between">
+                          <button
+                              type="button"
+                              disabled={busy || editSpot.status === "occupied"}
+                              title={
+                                  editSpot.status === "occupied"
+                                      ? "Спочатку звільніть місце"
+                                      : undefined
+                              }
+                              onClick={() => handleDeleteSpot(editSpot)}
+                              className="rounded-md border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-800 hover:bg-red-50 disabled:opacity-50"
+                          >
+                              Видалити місце
+                          </button>
+                          <div className="flex justify-end gap-2 sm:ml-auto">
+                              <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => setEditSpot(null)}
+                                  className="rounded-md border border-[#e6ebf1] bg-white px-4 py-2 text-sm font-medium"
+                              >
+                                  Скасувати
+                              </button>
+                              <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={saveEdit}
+                                  className="rounded-md bg-[#635bff] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5851e6]"
+                              >
+                                  Зберегти
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          ) : null}
+
+          {modalSpot ? (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+                  <div className="w-full max-w-md rounded-xl border border-[#e6ebf1] bg-white p-6 shadow-lg">
+                      <h2 className="text-lg font-semibold text-[#1a1f36]">
+                          Початок паркування — {modalSpot.spotNumber}
+                      </h2>
+                      <p className="mt-1 text-sm text-[#4f566b]">
+                          Оберіть ТЗ з довідника або додайте новий номер.
+                      </p>
+
+                      <div className="mt-6 space-y-4">
+                          <div>
+                              <label
+                                  className="block text-sm font-medium text-[#1a1f36]"
+                                  htmlFor="vehicle"
+                              >
+                                  Транспортний засіб
+                              </label>
+                              <select
+                                  id="vehicle"
+                                  className="mt-1 w-full rounded-md border border-[#e6ebf1] px-3 py-2 text-[#1a1f36]"
+                                  value={selectedVehicleId}
+                                  onChange={(e) =>
+                                      setSelectedVehicleId(e.target.value)
+                                  }
+                              >
+                                  <option value="">— оберіть —</option>
+                                  {vehicles.map((v) => (
+                                      <option
+                                          key={v.id}
+                                          value={v.id}
+                                          disabled={v.onParking}
+                                      >
+                                          {v.licensePlate}
+                                          {v.onParking ? " (на парковці)" : ""}
+                                      </option>
+                                  ))}
+                              </select>
+                          </div>
+                          <div className="flex gap-2">
+                              <input
+                                  className="flex-1 rounded-md border border-[#e6ebf1] px-3 py-2 text-sm"
+                                  placeholder="Новий номерний знак"
+                                  value={newPlate}
+                                  onChange={(e) => setNewPlate(e.target.value)}
+                              />
+                              <button
+                                  type="button"
+                                  disabled={busy || !newPlate.trim()}
+                                  onClick={handleAddVehicle}
+                                  className="rounded-md border border-[#e6ebf1] bg-white px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
+                              >
+                                  Додати
+                              </button>
+                          </div>
+                      </div>
+
+                      <div className="mt-6 flex justify-end gap-2">
+                          <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => setModalSpot(null)}
+                              className="rounded-md border border-[#e6ebf1] bg-white px-4 py-2 text-sm font-medium"
+                          >
+                              Скасувати
+                          </button>
+                          <button
+                              type="button"
+                              disabled={busy || !selectedVehicleId}
+                              onClick={handleStartSession}
+                              className="rounded-md bg-[#635bff] px-4 py-2 text-sm font-semibold text-white hover:bg-[#5851e6] disabled:opacity-50"
+                          >
+                              Почати
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          ) : null}
+      </div>
   );
 }
