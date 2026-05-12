@@ -78,6 +78,19 @@ async function migrateParkingSpotsColumns(connection) {
   }
 }
 
+async function migrateVehiclesColumns(connection) {
+  const [cols] = await connection.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'vehicles'`,
+    [dbName]
+  );
+  const names = new Set(cols.map((c) => c.COLUMN_NAME));
+  if (names.has('is_archived')) {
+    await connection.query(`ALTER TABLE vehicles DROP COLUMN is_archived`);
+    console.log('- Migration: dropped vehicles.is_archived');
+  }
+}
+
 async function ensureParkingSessionsIndexes(connection) {
   const specs = [
     {
@@ -168,10 +181,11 @@ async function initializeDatabase() {
         license_plate VARCHAR(20) NOT NULL UNIQUE,
         brand VARCHAR(100) NULL,
         vehicle_type VARCHAR(50) NULL,
-        is_archived TINYINT(1) NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    await migrateVehiclesColumns(connection);
 
     await connection.query(`
       CREATE TABLE IF NOT EXISTS tariffs (

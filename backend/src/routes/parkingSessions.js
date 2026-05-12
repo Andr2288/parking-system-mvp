@@ -28,7 +28,7 @@ router.post('/', async (req, res) => {
     await conn.beginTransaction();
 
     const [vehicles] = await conn.query(
-      'SELECT id FROM vehicles WHERE id = ? AND is_archived = 0 LIMIT 1',
+      'SELECT id FROM vehicles WHERE id = ? LIMIT 1',
       [vehicleId]
     );
     if (vehicles.length === 0) {

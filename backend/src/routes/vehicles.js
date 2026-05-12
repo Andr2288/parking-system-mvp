@@ -19,7 +19,6 @@ router.get('/', async (req, res) => {
            WHERE ps.vehicle_id = v.id AND ps.status = 'active'
          ) AS onParking
        FROM vehicles v
-       WHERE v.is_archived = 0
        ORDER BY v.license_plate ASC`
     );
     res.json({ vehicles: rows });
@@ -81,9 +80,7 @@ router.put('/:id', async (req, res) => {
   }
 
   try {
-    const [existing] = await pool.query('SELECT id FROM vehicles WHERE id = ? AND is_archived = 0', [
-      id,
-    ]);
+    const [existing] = await pool.query('SELECT id FROM vehicles WHERE id = ?', [id]);
     if (existing.length === 0) {
       res.status(404).json({ error: 'Vehicle not found' });
       return;
@@ -130,38 +127,6 @@ router.put('/:id', async (req, res) => {
     }
     console.error('Update vehicle:', err.message);
     res.status(500).json({ error: 'Failed to update vehicle' });
-  }
-});
-
-router.delete('/:id', async (req, res) => {
-  const id = Number(req.params.id);
-  if (!Number.isInteger(id) || id < 1) {
-    res.status(400).json({ error: 'Invalid vehicle id' });
-    return;
-  }
-
-  try {
-    const [active] = await pool.query(
-      'SELECT id FROM parking_sessions WHERE vehicle_id = ? AND status = ? LIMIT 1',
-      [id, 'active']
-    );
-    if (active.length > 0) {
-      res.status(400).json({ error: 'Cannot delete vehicle with an active parking session' });
-      return;
-    }
-
-    const [updated] = await pool.query(
-      'UPDATE vehicles SET is_archived = 1 WHERE id = ? AND is_archived = 0',
-      [id]
-    );
-    if (updated.affectedRows === 0) {
-      res.status(404).json({ error: 'Vehicle not found' });
-      return;
-    }
-    res.json({ ok: true });
-  } catch (err) {
-    console.error('Delete vehicle:', err.message);
-    res.status(500).json({ error: 'Failed to delete vehicle' });
   }
 });
 

@@ -82,20 +82,6 @@ export default function VehiclesPage() {
     }
   }
 
-  async function handleDelete(id) {
-    if (!window.confirm('Архівувати цей запис ТЗ?')) return;
-    setBusy(true);
-    setError('');
-    try {
-      await api.request(`/api/vehicles/${id}`, { method: 'DELETE' });
-      await load();
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <div>
       <h1 className="text-2xl font-semibold text-[#1a1f36]">Транспортні засоби</h1>
@@ -185,17 +171,9 @@ export default function VehiclesPage() {
                             vehicleType: v.vehicleType || '',
                           })
                         }
-                        className="mr-2 text-xs font-semibold text-[#635bff] hover:underline"
+                        className="text-xs font-semibold text-[#635bff] hover:underline"
                       >
                         Змінити
-                      </button>
-                      <button
-                        type="button"
-                        disabled={busy || v.onParking}
-                        onClick={() => handleDelete(v.id)}
-                        className="text-xs font-semibold text-red-700 hover:underline disabled:opacity-40"
-                      >
-                        Архівувати
                       </button>
                     </td>
                   </tr>
