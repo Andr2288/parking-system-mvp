@@ -218,7 +218,8 @@ router.get('/', async (req, res) => {
          ps.total_cost AS totalCost,
          ps.status,
          p.spot_number AS spotNumber,
-         v.license_plate AS licensePlate
+         v.license_plate AS licensePlate,
+         ROUND(TIMESTAMPDIFF(SECOND, ps.start_time, ps.end_time) / 3600, 4) AS durationHours
        FROM parking_sessions ps
        JOIN parking_spots p ON p.id = ps.parking_spot_id
        JOIN vehicles v ON v.id = ps.vehicle_id

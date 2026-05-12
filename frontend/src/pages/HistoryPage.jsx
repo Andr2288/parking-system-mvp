@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import * as api from '../api/client';
-import { formatDateTime, formatMoney } from '../utils/format';
+import { formatDateTime, formatMoney, formatTotalHoursDecimal } from '../utils/format';
 
 export default function HistoryPage() {
   const [sessions, setSessions] = useState([]);
@@ -59,25 +59,61 @@ export default function HistoryPage() {
           <div className="p-8 text-center text-[#4f566b]">Немає завершених сесій.</div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full text-left text-sm">
+            <table className="min-w-full text-sm">
               <thead className="border-b border-[#e6ebf1] bg-slate-50 text-xs font-semibold uppercase text-[#4f566b]">
                 <tr>
-                  <th className="px-4 py-3">Місце</th>
-                  <th className="px-4 py-3">ТЗ</th>
-                  <th className="px-4 py-3">Початок</th>
-                  <th className="px-4 py-3">Кінець</th>
-                  <th className="px-4 py-3 text-right">Вартість</th>
+                  <th className="px-4 py-3 text-center">Місце</th>
+                  <th className="px-4 py-3 text-center">ТЗ</th>
+                  <th className="px-4 py-3 text-center">Початок</th>
+                  <th className="px-4 py-3 text-center">Кінець</th>
+                  <th className="px-4 py-3 text-center">Годин (разом)</th>
+                  <th className="px-4 py-3 text-center">Вартість</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6ebf1]">
                 {sessions.map((s) => (
                   <tr key={s.id}>
-                    <td className="px-4 py-3 font-medium text-[#1a1f36]">{s.spotNumber}</td>
-                    <td className="px-4 py-3 text-[#4f566b]">{s.licensePlate}</td>
-                    <td className="px-4 py-3 text-[#4f566b]">{formatDateTime(s.startTime)}</td>
-                    <td className="px-4 py-3 text-[#4f566b]">{formatDateTime(s.endTime)}</td>
-                    <td className="px-4 py-3 text-right font-medium text-[#1a1f36]">
-                      {formatMoney(s.totalCost)}
+                    <td className="px-4 py-3 text-center align-middle">
+                      <div className="flex justify-center">
+                        <span className="inline-flex min-h-[1.75rem] items-center justify-center font-mono text-sm font-semibold text-[#1a1f36]">
+                          {s.spotNumber}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center align-middle">
+                      <div className="flex justify-center">
+                        <span className="inline-flex min-h-[1.75rem] max-w-[10rem] items-center justify-center break-words text-sm text-[#4f566b]">
+                          {s.licensePlate}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center align-middle">
+                      <div className="flex justify-center">
+                        <span className="inline-flex min-h-[1.75rem] items-center justify-center text-sm text-[#4f566b]">
+                          {formatDateTime(s.startTime)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center align-middle">
+                      <div className="flex justify-center">
+                        <span className="inline-flex min-h-[1.75rem] items-center justify-center text-sm text-[#4f566b]">
+                          {formatDateTime(s.endTime)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center align-middle">
+                      <div className="flex justify-center">
+                        <span className="inline-flex min-h-[1.75rem] items-center justify-center font-mono text-sm text-[#4f566b]">
+                          {formatTotalHoursDecimal(s.durationHours)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center align-middle">
+                      <div className="flex justify-center">
+                        <span className="inline-flex min-h-[1.75rem] items-center justify-center font-mono text-sm font-semibold text-[#1a1f36]">
+                          {formatMoney(s.totalCost)}
+                        </span>
+                      </div>
                     </td>
                   </tr>
                 ))}

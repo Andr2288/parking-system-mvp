@@ -26,12 +26,16 @@ function StatusBadge({ status }) {
 
 function ZoneCell({ zone, zoneColor }) {
   if (!zone) {
-    return <span className="text-[#4f566b]">—</span>;
+    return (
+      <span className="inline-flex min-h-[1.75rem] min-w-[2.5rem] items-center justify-center text-[#4f566b]">
+        —
+      </span>
+    );
   }
   const border = zoneColor && /^#[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/i.test(zoneColor) ? zoneColor : '#94a3b8';
   return (
     <span
-      className="inline-block max-w-[200px] truncate rounded-md border border-[#e6ebf1] bg-white px-2 py-1 text-xs font-medium text-[#1a1f36]"
+      className="inline-block max-w-[220px] truncate rounded-md border border-[#e6ebf1] bg-white px-2 py-1 text-left text-xs font-medium text-[#1a1f36]"
       style={{ borderLeftWidth: 4, borderLeftColor: border }}
       title={zone}
     >
@@ -253,17 +257,23 @@ export default function ParkingSpotsPage() {
             <table className="min-w-full text-left text-sm">
               <thead className="border-b border-[#e6ebf1] bg-slate-50 text-xs font-semibold uppercase tracking-wide text-[#4f566b]">
                 <tr>
-                  <th className="px-4 py-3">Номер</th>
+                  <th className="px-4 py-3 text-center">Номер</th>
                   <th className="px-4 py-3 text-center">Статус</th>
-                  <th className="px-4 py-3">Зона</th>
-                  <th className="px-4 py-3">Коеф.</th>
-                  <th className="w-36 px-4 py-3 text-right">Дії</th>
+                  <th className="px-4 py-3 text-center">Зона</th>
+                  <th className="px-4 py-3 text-center">Коеф.</th>
+                  <th className="w-36 px-4 py-3 text-center">Дії</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#e6ebf1]">
                 {spots.map((s) => (
                   <tr key={s.id} className="text-[#1a1f36]">
-                    <td className="px-4 py-3 font-medium">{s.spotNumber}</td>
+                    <td className="px-4 py-3 text-center align-middle">
+                      <div className="flex justify-center">
+                        <span className="inline-flex min-h-[1.75rem] items-center justify-center font-mono text-sm font-semibold text-[#1a1f36]">
+                          {s.spotNumber}
+                        </span>
+                      </div>
+                    </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex flex-col items-center gap-1.5">
                         <StatusBadge status={s.status} />
@@ -274,12 +284,21 @@ export default function ParkingSpotsPage() {
                         ) : null}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <ZoneCell zone={s.zone} zoneColor={s.zoneColor} />
+                    <td className="px-4 py-3 text-center align-middle">
+                      <div className="flex justify-center">
+                        <ZoneCell zone={s.zone} zoneColor={s.zoneColor} />
+                      </div>
                     </td>
-                    <td className="px-4 py-3 font-mono text-[#4f566b]">{formatCoeff(s.priceCoefficient ?? 1)}</td>
-                    <td className="px-4 py-3 text-right align-top">
-                      <div className="ml-auto flex w-36 flex-col gap-2">
+                    <td className="px-4 py-3 text-center align-middle">
+                      <div className="flex justify-center">
+                        <span className="inline-flex min-h-[1.75rem] min-w-[2.5rem] items-center justify-center font-mono text-sm font-medium text-[#4f566b]">
+                          {formatCoeff(s.priceCoefficient ?? 1)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-center align-middle">
+                      <div className="flex justify-center">
+                        <div className="flex w-36 flex-col gap-2">
                         <button
                           type="button"
                           disabled={busy}
@@ -307,6 +326,7 @@ export default function ParkingSpotsPage() {
                             Звільнити
                           </button>
                         )}
+                        </div>
                       </div>
                     </td>
                   </tr>

@@ -25,3 +25,10 @@ export function formatDurationHours(value) {
   if (h === 0) return `${m} хв`;
   return `${h} год ${m} хв`;
 }
+
+/** Десяткові години для таблиць (uk-UA). */
+export function formatTotalHoursDecimal(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return '—';
+  return `${n.toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} год`;
+}

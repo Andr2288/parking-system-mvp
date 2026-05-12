@@ -133,7 +133,7 @@ export default function DashboardPage() {
               {formatMoney(analytics.totalRevenue)}
             </p>
             <p className="mt-1 text-xs text-[#4f566b]">
-              {analytics.allTime ? 'за всі часи' : `${analytics.from} — ${analytics.to}`}
+              {analytics.allTime ? 'за ввесь час' : `${analytics.from} — ${analytics.to}`}
             </p>
           </div>
           <div className="rounded-xl border border-[#e6ebf1] bg-white p-5 shadow-sm">
