@@ -91,6 +91,21 @@ async function migrateVehiclesColumns(connection) {
   }
 }
 
+async function migrateParkingSessionsPaymentStatus(connection) {
+  const [cols] = await connection.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'parking_sessions'`,
+    [dbName]
+  );
+  const names = new Set(cols.map((c) => c.COLUMN_NAME));
+  if (!names.has('payment_status')) {
+    await connection.query(
+      `ALTER TABLE parking_sessions ADD COLUMN payment_status ENUM('unpaid', 'paid') NOT NULL DEFAULT 'unpaid'`
+    );
+    console.log('- Migration: added parking_sessions.payment_status');
+  }
+}
+
 async function ensureParkingSessionsIndexes(connection) {
   const specs = [
     {
@@ -214,6 +229,7 @@ async function initializeDatabase() {
         end_time DATETIME NULL,
         total_cost DECIMAL(10,2) NULL,
         status ENUM('active', 'completed') NOT NULL DEFAULT 'active',
+        payment_status ENUM('unpaid', 'paid') NOT NULL DEFAULT 'unpaid',
         tariff_id INT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT fk_sessions_spot FOREIGN KEY (parking_spot_id) REFERENCES parking_spots(id),
@@ -221,6 +237,8 @@ async function initializeDatabase() {
         CONSTRAINT fk_sessions_tariff FOREIGN KEY (tariff_id) REFERENCES tariffs(id)
       )
     `);
+
+    await migrateParkingSessionsPaymentStatus(connection);
 
     await ensureParkingSessionsIndexes(connection);
 

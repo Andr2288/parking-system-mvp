@@ -88,6 +88,7 @@ router.post('/', async (req, res) => {
          ps.end_time AS endTime,
          ps.total_cost AS totalCost,
          ps.status,
+         ps.payment_status AS paymentStatus,
          ps.tariff_id AS tariffId,
          p.spot_number AS spotNumber,
          v.license_plate AS licensePlate
@@ -187,6 +188,7 @@ router.post('/:id/end', async (req, res) => {
          ps.end_time AS endTime,
          ps.total_cost AS totalCost,
          ps.status,
+         ps.payment_status AS paymentStatus,
          p.spot_number AS spotNumber,
          v.license_plate AS licensePlate
        FROM parking_sessions ps
@@ -206,8 +208,30 @@ router.post('/:id/end', async (req, res) => {
   }
 });
 
-router.get('/', async (req, res) => {
+router.patch('/:id', async (req, res) => {
+  const sessionId = Number(req.params.id);
+  if (!Number.isInteger(sessionId) || sessionId < 1) {
+    res.status(400).json({ error: 'Invalid session id' });
+    return;
+  }
+
+  const raw = req.body?.paymentStatus;
+  const paymentStatus = typeof raw === 'string' ? raw.trim() : '';
+  if (paymentStatus !== 'paid' && paymentStatus !== 'unpaid') {
+    res.status(400).json({ error: 'paymentStatus must be "paid" or "unpaid"' });
+    return;
+  }
+
   try {
+    const [result] = await pool.query(
+      `UPDATE parking_sessions SET payment_status = ? WHERE id = ? AND status = 'completed'`,
+      [paymentStatus, sessionId]
+    );
+    if (result.affectedRows === 0) {
+      res.status(404).json({ error: 'Завершену сесію не знайдено' });
+      return;
+    }
+
     const [rows] = await pool.query(
       `SELECT
          ps.id,
@@ -217,15 +241,63 @@ router.get('/', async (req, res) => {
          ps.end_time AS endTime,
          ps.total_cost AS totalCost,
          ps.status,
+         ps.payment_status AS paymentStatus,
          p.spot_number AS spotNumber,
          v.license_plate AS licensePlate,
          ROUND(TIMESTAMPDIFF(SECOND, ps.start_time, ps.end_time) / 3600, 4) AS durationHours
        FROM parking_sessions ps
        JOIN parking_spots p ON p.id = ps.parking_spot_id
        JOIN vehicles v ON v.id = ps.vehicle_id
-       WHERE ps.status = 'completed'
-       ORDER BY ps.end_time DESC, ps.id DESC`
+       WHERE ps.id = ?`,
+      [sessionId]
     );
+    res.json({ session: rows[0] });
+  } catch (err) {
+    console.error('Update session payment:', err.message);
+    res.status(500).json({ error: 'Failed to update payment status' });
+  }
+});
+
+router.get('/', async (req, res) => {
+  const search =
+    typeof req.query.search === 'string' ? req.query.search.trim() : '';
+  const paymentFilter =
+    typeof req.query.paymentStatus === 'string' ? req.query.paymentStatus.trim() : '';
+
+  let sql = `
+      SELECT
+         ps.id,
+         ps.parking_spot_id AS parkingSpotId,
+         ps.vehicle_id AS vehicleId,
+         ps.start_time AS startTime,
+         ps.end_time AS endTime,
+         ps.total_cost AS totalCost,
+         ps.status,
+         ps.payment_status AS paymentStatus,
+         p.spot_number AS spotNumber,
+         v.license_plate AS licensePlate,
+         ROUND(TIMESTAMPDIFF(SECOND, ps.start_time, ps.end_time) / 3600, 4) AS durationHours
+       FROM parking_sessions ps
+       JOIN parking_spots p ON p.id = ps.parking_spot_id
+       JOIN vehicles v ON v.id = ps.vehicle_id
+       WHERE ps.status = 'completed'`;
+  const params = [];
+
+  if (paymentFilter === 'paid' || paymentFilter === 'unpaid') {
+    sql += ' AND ps.payment_status = ?';
+    params.push(paymentFilter);
+  }
+
+  if (search) {
+    sql += ' AND (p.spot_number LIKE ? OR v.license_plate LIKE ?)';
+    const like = `%${search}%`;
+    params.push(like, like);
+  }
+
+  sql += ' ORDER BY ps.end_time DESC, ps.id DESC';
+
+  try {
+    const [rows] = await pool.query(sql, params);
     res.json({ sessions: rows });
   } catch (err) {
     console.error('Session history:', err.message);
